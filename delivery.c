@@ -3,9 +3,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #define vertex int
-#define troca(a, b) { int t = a; a = b; b = t; }
 
-static struct node *PQ;
 
 typedef struct graph *Graph;
 typedef struct node *link;
@@ -33,6 +31,7 @@ struct node {
 };
 
 
+
 static link newNode ( vertex w, int custo, link next ) {
     link a = malloc ( sizeof (struct node) );
     a->w = w;
@@ -47,43 +46,108 @@ Graph GraphInit ( int V ) {
     G->A = 0;
     G->adj = malloc ( V * sizeof (link));
     for( vertex v = 0; v < V; ++v)
-        G->adj[v] = NULL;
+    G->adj[v] = NULL;
     return G;   
 }   
 
 void GraphInsertArc ( Graph G, vertex v, vertex w, int custo ) {
     for ( link a = G->adj[v]; a != NULL; a = a->next )
-        if ( a->w == w ) return;
+    if ( a->w == w ) return;
     G->adj[v] = newNode ( w, custo, G->adj[v] );
     G->A++;
 }
 
+static vertex **pa;
+static int **dist;
+
+void PAinit( int V ) {
+    // Inicializa o vetor de pais
+    pa = malloc ( V * sizeof (vertex *) );
+    for (int i = 0; i < V; ++i)
+        pa[i] = malloc ( V * sizeof (vertex) );
+}
+
+void DISTinit( int V ) {
+    // Inicializa o vetor de distâncias
+    dist = malloc ( V * sizeof (int *) );
+    for (int i = 0; i < V; ++i)
+        dist[i] = malloc ( V * sizeof (vertex) );
+}
+
+static vertex *PQ;
+static int *QP;
+static int PQsize; // Tamanho da fila de prioridade
+
 void PQinit ( int V ) {
     // Inicializa a fila de prioridade
-    PQ = malloc ( V * sizeof ( struct node ) );
+    PQ = malloc ( V * sizeof ( vertex ) + 1 );
+    QP = malloc ( V * sizeof ( int ));
+    for (int i = 0; i < V; ++i) QP[i] = -1; 
+    PQsize = 0;
+}
+
+void exch(int i, int j) {
+    int t = PQ[i];
+    PQ[i] = PQ[j];
+    PQ[j] = t;
+    QP[PQ[i]] = i;
+    QP[PQ[j]] = j;
 }
 
 void PQinsert ( vertex v, int *dist ) {
     // Insere o vértice v na fila de prioridade com a distância dist[v]
-    
+    PQ[++PQsize] = v;
+    QP[v] = PQsize;
+    FixUp ( PQsize, dist );
 }
 
 bool PQempty ( void ) {
     // Verifica se a fila de prioridade está vazia
-    // (não implementada neste exemplo, mas necessária para o algoritmo de Dijkstra)
+    return PQsize == 0;
 }
 
 vertex PQdelmin ( int *dist ) {
     // Remove o vértice com a menor distância da fila de prioridade
-    // (não implementada neste exemplo, mas necessária para o algoritmo de Dijkstra)
+    vertex min = PQ[1];
+    exch(1, PQsize--);
+    QP[min] = -1;
+    FixDowm (1, dist);
+    return min;
 }
 
-void PQdec ( vertex v, int *dist ) {
+void PQdec (vertex v, int *dist) {
+    FixUp (QP[v], dist);
+}
+
+void FixDowm ( int i, int *dist ) {
     // Decrementa a prioridade do vértice v na fila de prioridade
-    // (não implementada neste exemplo, mas necessária para o algoritmo de Dijkstra)
+    vertex j = i;
+    while( 2 * j <= PQsize ) {
+        int f = 2 * j;
+        if ( f < PQsize && dist[PQ[f]] < dist[PQ[f + 1]] )
+            f++;
+        if ( dist[PQ[j]] <= dist[PQ[f]] ) break;
+        exch(j, f);
+        j = f;
+    }
+    
 }
 
-void Dijkstra ( Graph G, vertex s, vertex *pa, int *dist)
+void FixUp (int j, int *dist) {
+    // Incrementa a prioridade do vértice v na fila de prioridade
+    while ( j >= 2 && dist[PQ[j / 2]] > dist[PQ[j]] ) {
+        exch(j / 2, j);
+        j /= 2;
+    }
+}
+
+void PQfree ( void ) {
+    // Libera a memória alocada para a fila de prioridade
+    free(PQ);
+    free(QP);
+}
+
+void Dijkstra ( Graph G, vertex s)
 {
    bool mature[1000];
    for (vertex v = 0; v < G->V; ++v)
